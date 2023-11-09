@@ -176,6 +176,7 @@ variable "gke_sa_roles" {
   default = [
     "storage.objectAdmin",
     "logging.logWriter",
+    "artifactregistry.reader"
     ] 
 }
 
