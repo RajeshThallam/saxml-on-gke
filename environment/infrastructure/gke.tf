@@ -36,6 +36,7 @@ module "gke" {
   ip_range_services          = google_compute_subnetwork.cluster_subnetwork.secondary_ip_range.0.range_name
   default_max_pods_per_node  = var.max_pods_per_node
   remove_default_node_pool   = true
+  initial_node_count         = 1
   http_load_balancing        = false
   network_policy             = false
   horizontal_pod_autoscaling = true
@@ -46,6 +47,7 @@ module "gke" {
   gcs_fuse_csi_driver        = true
   identity_namespace         = "${data.google_project.project.project_id}.svc.id.goog" 
   logging_enabled_components = ["SYSTEM_COMPONENTS", "WORKLOADS"]
+  deletion_protection        = var.cluster_deletion_protection
   
   cluster_resource_labels = { "mesh_id" : "proj-${data.google_project.project.number}" }
 
