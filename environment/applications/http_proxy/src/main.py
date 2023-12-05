@@ -103,12 +103,10 @@ def lm_generate(query: Query):
             }
         }
         
-        if random.randint(0, 10) > 3:
-            raise RuntimeError("Let's trigger random error")
-
     except Exception as e:
         logging.error("Exception when invoking Saxml client: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Exception in Saxml client: {e}")
-
+     
+    # Add comment
     return response

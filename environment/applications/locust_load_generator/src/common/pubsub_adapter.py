@@ -19,20 +19,19 @@ import time
 from datetime import datetime
 import gevent
 import grpc.experimental.gevent as grpc_gevent
+# patch grpc so that it uses gevent instead of asyncio
+grpc_gevent.init_gevent()
+
+from locust.env import Environment
+from locust import events
+from locust.runners import  STATE_RUNNING, MasterRunner
 
 from google.cloud import pubsub_v1
 from google.protobuf.json_format import MessageToDict
 from google.pubsub_v1.services.publisher.client import PublisherClient
 from google.pubsub_v1.types import PubsubMessage
 
-from locust.env import Environment
-from locust import events
-from locust.runners import  STATE_RUNNING, MasterRunner
-
 from common import metrics_pb2
-
-# patch grpc so that it uses gevent instead of asyncio
-grpc_gevent.init_gevent()
 
 
 def greenlet_exception_handler():
@@ -171,33 +170,30 @@ class PubsubAdapter:
                          exception: Exception,
                          start_time: datetime):
         """Prepare a metrics protobuf."""
-
-        metrics = metrics_pb2.Metrics()
-        metrics.test_id = test_id
-        metrics.request_type = request_type
-        metrics.request_name = name
-        metrics.response_time = response_time
-        metrics.response_length = response_length
-        metrics.start_time = time.strftime(
-            "%Y-%m-%d %H:%M:%S",  time.localtime(start_time))
-        if context.get("num_output_tokens"):
-            metrics.num_output_tokens = context["num_output_tokens"]
-        if context.get("num_input_tokens"):
-            metrics.num_input_tokens = context["num_input_tokens"]
-        if context.get("model_name"):
-            metrics.model_name = context["model_name"]
-        if context.get("model_method"):
-            metrics.model_method = context["model_method"]
-        if context.get("model_server_response_time"):
-            metrics.model_server_response_time = context["model_server_response_time"]
-        if context.get("prompt"):
-            metrics.prompt = context["prompt"]
-        if context.get("prompt_parameters"):
-            metrics.prompt_parameters = context["prompt_parameters"]
-        if context.get("completions"):
-            metrics.completion = context["completions"]
-        metrics = json.dumps(MessageToDict(metrics)).encode("utf-8")
-        message = PubsubMessage(data=metrics)
+       
+        metrics = {
+            "test_id": test_id,
+            "request_type": request_type,
+            "request_name": name,
+            "response_time": response_time,
+            "response_length": response_length,
+            "start_time": time.strftime(
+                "%Y-%m-%d %H:%M:%S",  time.localtime(start_time)) 
+        }
+        if exception:
+            metrics["exception"] = str(exception)
+        if self.environment.parsed_options.request_response_logging == "enabled":
+            response_dict = response.json()
+            metrics["response"] = json.dumps(response_dict)
+    
+        if context:
+            for key in ["model_name", "model_method", "request", "num_input_tokens", "num_output_tokens", "tokenizer", "model_response_time"]:
+                value = context.get(key)
+                if value:
+                    metrics[key] = value
+        
+        metrics_proto = metrics_pb2.Metrics(**metrics)
+        message = PubsubMessage(data=json.dumps(MessageToDict(metrics_proto)).encode("utf-8"))
 
         return message
 
@@ -206,7 +202,7 @@ class PubsubAdapter:
 def _(parser):
     parser.add_argument("--metrics_tracking", include_in_web_ui=True, choices=["enabled", "disabled"], default="enabled",
                         help="Whether to publish metrics to Pubsub topic")
-    parser.add_argument("--query_response_logging", include_in_web_ui=True, choices=["enabled", "disabled"], default="enabled",
+    parser.add_argument("--request_response_logging", include_in_web_ui=True, choices=["enabled", "disabled"], default="enabled",
                         help="Whether to include request and response content in published metrics")
     parser.add_argument("--test_id", type=str,
                         include_in_web_ui=True, default="", help="Test ID")

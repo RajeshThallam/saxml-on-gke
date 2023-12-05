@@ -286,3 +286,19 @@ gcloud compute tpus tpu-vm create jk-saxml-tpu-model-server \
 sed -z -e 's/"/\\"/g' -e 's/\n/\\n/g' ../applications/locust_load_generator/src/common/metrics.proto
 
 ```
+
+
+### Terraform
+
+```
+terraform init -backend-config=backend.conf
+```
+
+```
+terraform apply -var-file environment.example.tfvars
+```
+
+
+```
+terraform destroy -var-file environment.example.tfvars
+```
